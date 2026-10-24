@@ -79,9 +79,9 @@ export default {
             let self = this
             axios.all([
                 axios.get(process.env.VUE_APP_ROOT_API + "/getTotalCommentCount"),
-                axios.get("/getTotalReplyCount"),
-                axios.get("/getTotalLikeCount"),
-                axios.get("/getTotalAccountCount"),
+                axios.get(process.env.VUE_APP_ROOT_API + "/getTotalReplyCount"),
+                axios.get(process.env.VUE_APP_ROOT_API + "/getTotalLikeCount"),
+                axios.get(process.env.VUE_APP_ROOT_API + "/getTotalAccountCount"),
             ]).then(axios.spread((comment, reply, like, account) => {
                 self.comment = comment.data.message[0]['COUNT(*)']
                 self.reply = reply.data.message[0]['COUNT(*)']

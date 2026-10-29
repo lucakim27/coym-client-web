@@ -3,7 +3,7 @@
         <div class="modal-overlay" @click="$emit('close-modal')">
             <div class="modal" @click.stop v-if="!isMobile()">
                 <div class="loginContainer" v-if="login">
-                    <form class="loginForm" method="get" @submit.prevent="signIn">
+                    <form class="loginForm" method="post" @submit.prevent="signIn">
                         <h1>Sign In</h1>
                         <input class="loginInput" type="text" name="username" v-model="loginUsername"
                             placeholder="Username..." required /><br /><br />
@@ -35,7 +35,7 @@
             </div>
             <div class="modal mobileModal" @click.stop v-if="isMobile()">
                 <div class="loginContainer" v-if="login">
-                    <form class="loginForm mobileLoginForm" method="get" @submit.prevent="signIn">
+                    <form class="loginForm mobileLoginForm" method="post" @submit.prevent="signIn">
                         <h1>Sign In</h1>
                         <input class="loginInput" type="text" name="username" v-model="loginUsername"
                             placeholder="Username..." required /><br /><br />
@@ -68,63 +68,11 @@
         </div>
     </Transition>
 </template>
-<script setup>
-// import axios from 'axios'
-// import { useCookies } from "vue3-cookies"
-import { decodeCredential } from 'vue3-google-login'
 
-const callback = (response) => {
-    const { cookies } = useCookies()
-    // decodeCredential will retrive the JWT payload from the credential
-    const userData = decodeCredential(response.credential)
-    console.log("Handle the userData", userData)
-
-    axios({
-        method: "POST",
-        url: process.env.VUE_APP_ROOT_API + "/signUp",
-        headers: { 'Content-Type': 'application/json' },
-        data: { username: userData.email, password: userData.given_name + userData.family_name, passwordConfirm: userData.given_name + userData.family_name }
-    }).then(function (response) {
-        if (!response.data.status) {
-            axios({
-                method: "GET",
-                url: process.env.VUE_APP_ROOT_API + "/signIn",
-                params: {
-                    username: userData.email,
-                    password: userData.given_name + userData.family_name
-                }
-            }).then(function (response) {
-                if (response.data.status) {
-                    self.$cookies.set("user", { username: userData.email, password: userData.given_name + userData.family_name })
-                    window.location.href = "/"
-                } else {
-                    alert(response.data.message)
-                }
-            })
-        } else {
-            axios({
-                method: "GET",
-                url: process.env.VUE_APP_ROOT_API + "/signIn",
-                params: {
-                    username: userData.email,
-                    password: userData.given_name + userData.family_name
-                }
-            }).then(function (response) {
-                if (response.data.status) {
-                    self.$cookies.set("user", { username: userData.email, password: userData.given_name + userData.family_name })
-                    window.location.href = "/"
-                } else {
-                    alert(response.data.message)
-                }
-            })
-        }
-    })
-
-}
-</script>
 <script>
 import axios from 'axios'
 import { useCookies } from "vue3-cookies"
+import { decodeCredential } from 'vue3-google-login'
 export default {
     name: 'ModalComponent',
     setup() {
@@ -143,6 +91,41 @@ export default {
         }
     },
     methods: {
+        async callback(response) {
+            const userData = decodeCredential(response.credential)
+            const username = userData.email
+            const password = `${userData.given_name || ''}${userData.family_name || ''}`
+
+            try {
+                const signUpResponse = await axios.post(
+                    process.env.VUE_APP_ROOT_API + "/signUp",
+                    { username, password, passwordConfirm: password },
+                    { headers: { 'Content-Type': 'application/json' } }
+                )
+
+                if (!signUpResponse.data.status && signUpResponse.data.message !== 'It already exists.') {
+                    alert(signUpResponse.data.message)
+                    return
+                }
+
+                const signInResponse = await axios.post(
+                    process.env.VUE_APP_ROOT_API + "/signIn",
+                    { username, password },
+                    { headers: { 'Content-Type': 'application/json' } }
+                )
+
+                if (!signInResponse.data.status) {
+                    alert(signInResponse.data.message)
+                    return
+                }
+
+                this.$cookies.set("user", { username, password })
+                window.location.href = "/"
+            } catch (error) {
+                console.error('Google sign-in request failed:', error)
+                alert('Unable to sign in. Please try again.')
+            }
+        },
         isMobile() {
             if (/Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent)) {
                 return true
@@ -161,12 +144,13 @@ export default {
         signIn() {
             const self = this
             axios({
-                method: "GET",
+                method: "POST",
                 url: process.env.VUE_APP_ROOT_API + "/signIn",
-                params: {
+                data: {
                     username: this.loginUsername,
                     password: this.loginPassword
-                }
+                },
+                headers: { 'Content-Type': 'application/json' }
             }).then(function (response) {
                 if (response.data.status) {
                     self.$cookies.set("user", { username: self.loginUsername, password: self.loginPassword })
@@ -174,6 +158,9 @@ export default {
                 } else {
                     alert(response.data.message)
                 }
+            }).catch(function (error) {
+                console.error('Sign-in request failed:', error)
+                alert('Unable to sign in. Please try again.')
             })
         },
         signUp() {

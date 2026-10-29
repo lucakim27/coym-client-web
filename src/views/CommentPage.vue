@@ -176,9 +176,9 @@ export default {
     cookieValidation(self) {
       if (self.cookies.get('user') !== null) {
         axios({
-          method: "GET",
+          method: "POST",
           url: process.env.VUE_APP_ROOT_API + "/cookieValidation",
-          params: {
+          data: {
             username: self.cookies.get("user").username,
             password: self.cookies.get("user").password
           }
